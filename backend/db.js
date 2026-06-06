@@ -1,10 +1,17 @@
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'todo.db');
 
 async function initDb() {
+  // Ensure the parent directory of the database file exists
+  const parentDir = path.dirname(dbPath);
+  if (!fs.existsSync(parentDir)) {
+    fs.mkdirSync(parentDir, { recursive: true });
+  }
+
   const db = await open({
     filename: dbPath,
     driver: sqlite3.Database

@@ -51,10 +51,10 @@ app.post('/api/todos', async (req, res) => {
     return res.status(400).json({ error: 'Title is required and cannot be empty' });
   }
   if (due_date && !isValidDate(due_date)) {
-    return res.status(400).json({ error: 'due_date must be a valid date in YYYY-MM-DD format' });
+    return res.status(400).json({ error: 'Invalid due_date format or value. Expected YYYY-MM-DD.' });
   }
   if (priority && !isValidPriority(priority)) {
-    return res.status(400).json({ error: 'priority must be low, medium, or high' });
+    return res.status(400).json({ error: 'Invalid priority value. Expected low, medium, or high.' });
   }
   try {
     const result = await db.run(
