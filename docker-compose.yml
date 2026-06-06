@@ -1,4 +1,13 @@
 services:
+  mongodb:
+    image: mongo:6.0
+    container_name: todo-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - todo-mongo-data:/data/db
+    restart: always
+
   backend:
     build: ./backend
     container_name: todo-backend
@@ -7,10 +16,12 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - todo-db-data:/app/data
     environment:
       - PORT=5001
-      - DATABASE_PATH=/app/data/todo.db
+      - MONGO_URI=mongodb://mongodb:27017/mytodo
+      - JWT_SECRET=supersecret_mytodo_jwt_key_2026
+    depends_on:
+      - mongodb
     restart: always
 
   frontend:
@@ -23,4 +34,4 @@ services:
     restart: always
 
 volumes:
-  todo-db-data:
+  todo-mongo-data:

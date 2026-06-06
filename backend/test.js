@@ -201,11 +201,118 @@ async function runTests() {
     failures++;
   }
 
-  // Clean up test todo
-  if (testTodoId) {
-    try {
-      await request('DELETE', `/api/todos/${testTodoId}`);
-    } catch (e) {}
+  // Test Case 9: DELETE non-existent ID
+  try {
+    const res = await request('DELETE', '/api/todos/999999');
+    if (res.status === 404) {
+      console.log('✅ Test 9 Passed: DELETE non-existent ID returned 404');
+    } else {
+      console.error(`❌ Test 9 Failed: Expected 404 for DELETE non-existent ID, got: ${res.status}`, res.body);
+      failures++;
+    }
+  } catch (err) {
+    console.error('❌ Test 9 Error:', err.message);
+    failures++;
+  }
+
+  // Test Case 10: Heatmap returns array when DB is empty of completed tasks
+  try {
+    const res = await request('GET', '/api/todos/heatmap');
+    if (res.status === 200 && Array.isArray(res.body)) {
+      console.log('✅ Test 10 Passed: Heatmap returns array (empty or populated)');
+    } else {
+      console.error(`❌ Test 10 Failed: Heatmap did not return array, status: ${res.status}`, res.body);
+      failures++;
+    }
+  } catch (err) {
+    console.error('❌ Test 10 Error:', err.message);
+    failures++;
+  }
+
+  // Test Case 11: Heatmap count accuracy - create 3 tasks, complete them, check count
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const t1 = await request('POST', '/api/todos', { title: 'Heatmap test 1' });
+    const t2 = await request('POST', '/api/todos', { title: 'Heatmap test 2' });
+    const t3 = await request('POST', '/api/todos', { title: 'Heatmap test 3' });
+    await request('PUT', `/api/todos/${t1.body.id}`, { completed: 1 });
+    await request('PUT', `/api/todos/${t2.body.id}`, { completed: 1 });
+    await request('PUT', `/api/todos/${t3.body.id}`, { completed: 1 });
+
+    const heatmap = await request('GET', '/api/todos/heatmap');
+    const todayEntry = heatmap.body.find((e) => e.date === today);
+    if (todayEntry && todayEntry.count >= 3) {
+      console.log(`✅ Test 11 Passed: Heatmap count for today is ${todayEntry.count} (>= 3)`);
+    } else {
+      console.error(`❌ Test 11 Failed: Expected count >= 3 for today, got:`, todayEntry);
+      failures++;
+    }
+
+    // Cleanup
+    await request('DELETE', `/api/todos/${t1.body.id}`);
+    await request('DELETE', `/api/todos/${t2.body.id}`);
+    await request('DELETE', `/api/todos/${t3.body.id}`);
+  } catch (err) {
+    console.error('❌ Test 11 Error:', err.message);
+    failures++;
+  }
+
+  // Test Case 12: Rapid toggle complete/incomplete/complete
+  try {
+    const setup = await request('POST', '/api/todos', { title: 'Rapid toggle test' });
+    const rid = setup.body.id;
+    const today = new Date().toISOString().split('T')[0];
+
+    await request('PUT', `/api/todos/${rid}`, { completed: 1 });
+    const r1 = await request('PUT', `/api/todos/${rid}`, { completed: 0 });
+    const r2 = await request('PUT', `/api/todos/${rid}`, { completed: 1 });
+
+    if (r1.body.completed === 0 && r1.body.completed_at === null &&
+        r2.body.completed === 1 && r2.body.completed_at === today) {
+      console.log('✅ Test 12 Passed: Rapid toggle complete/incomplete/complete is consistent');
+    } else {
+      console.error('❌ Test 12 Failed: Rapid toggle inconsistency', { r1: r1.body, r2: r2.body });
+      failures++;
+    }
+
+    await request('DELETE', `/api/todos/${rid}`);
+  } catch (err) {
+    console.error('❌ Test 12 Error:', err.message);
+    failures++;
+  }
+
+  // Test Case 13: POST with no body at all
+  try {
+    const res = await request('POST', '/api/todos', {});
+    if (res.status === 400) {
+      console.log('✅ Test 13 Passed: POST with empty object rejected with 400');
+    } else {
+      console.error(`❌ Test 13 Failed: POST with empty object accepted, status: ${res.status}`, res.body);
+      failures++;
+    }
+  } catch (err) {
+    console.error('❌ Test 13 Error:', err.message);
+    failures++;
+  }
+
+  // Test Case 14: Valid todo with all fields populated
+  try {
+    const res = await request('POST', '/api/todos', {
+      title: 'Full task',
+      description: 'A complete task with all fields',
+      due_date: '2026-12-31',
+      priority: 'high'
+    });
+    if (res.status === 201 && res.body.title === 'Full task' && res.body.priority === 'high' && res.body.due_date === '2026-12-31') {
+      console.log('✅ Test 14 Passed: Full valid todo created successfully');
+    } else {
+      console.error(`❌ Test 14 Failed: Full todo creation unexpected result, status: ${res.status}`, res.body);
+      failures++;
+    }
+    if (res.body.id) await request('DELETE', `/api/todos/${res.body.id}`);
+  } catch (err) {
+    console.error('❌ Test 14 Error:', err.message);
+    failures++;
   }
 
   console.log('=== TEST RESULT SUMMARY ===');
@@ -219,3 +326,4 @@ async function runTests() {
 }
 
 runTests();
+

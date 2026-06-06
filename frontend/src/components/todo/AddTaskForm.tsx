@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Calendar, AlertCircle } from 'lucide-react';
 
 interface AddTaskFormProps {
-  onAdd: (todo: { title: string; description?: string; due_date?: string | null; priority?: string }) => Promise<void>;
+  onAdd: (todo: { title: string; description?: string; due_date?: string | null; priority?: string; category?: string }) => Promise<void>;
 }
 
 export const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAdd }) => {
@@ -11,6 +11,7 @@ export const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAdd }) => {
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [category, setCategory] = useState('Chung');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,12 +31,14 @@ export const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAdd }) => {
         description: description.trim() || undefined,
         due_date: dueDate || null,
         priority,
+        category,
       });
       // Reset form
       setTitle('');
       setDescription('');
       setDueDate('');
       setPriority('medium');
+      setCategory('Chung');
       setIsOpen(false);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Không thể tạo công việc. Vui lòng kiểm tra dữ liệu.');
@@ -88,33 +91,47 @@ export const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAdd }) => {
         className="w-full bg-transparent border-none text-xs text-zinc-300 placeholder-zinc-500 p-0 focus:ring-0 focus:outline-none resize-none"
       />
 
-      {/* Action panel (Priority & Due date) */}
+      {/* Action panel (Priority & Due date & Category) */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
           {/* Due date picker */}
-          <div className="flex items-center gap-1.5 text-zinc-400 relative">
+          <div className="flex items-center gap-1 text-zinc-400 relative">
             <Calendar size={14} />
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               disabled={isSubmitting}
-              className="bg-zinc-800/40 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+              className="bg-zinc-800/40 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-1.5 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
             />
           </div>
 
           {/* Priority selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500">Ưu tiên:</span>
+          <div className="flex items-center gap-1">
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as any)}
               disabled={isSubmitting}
-              className="bg-zinc-800/40 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+              className="bg-zinc-800/40 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-1.5 focus:ring-1 focus:ring-emerald-500 focus:outline-none cursor-pointer"
             >
-              <option value="low" className="bg-zinc-900 text-zinc-300">Thấp</option>
-              <option value="medium" className="bg-zinc-900 text-zinc-300">Trung bình</option>
-              <option value="high" className="bg-zinc-900 text-zinc-300">Cao</option>
+              <option value="low" className="bg-zinc-900">Thấp</option>
+              <option value="medium" className="bg-zinc-900">Trung bình</option>
+              <option value="high" className="bg-zinc-900">Cao</option>
+            </select>
+          </div>
+
+          {/* Category selector */}
+          <div className="flex items-center gap-1">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={isSubmitting}
+              className="bg-zinc-800/40 hover:bg-zinc-800 text-cyan-400 border border-zinc-700/30 rounded-lg text-xs py-1 px-1.5 focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer font-semibold"
+            >
+              <option value="Chung" className="bg-zinc-900 text-zinc-300">Chung</option>
+              <option value="Công việc" className="bg-zinc-900 text-zinc-300">Công việc</option>
+              <option value="Cá nhân" className="bg-zinc-900 text-zinc-300">Cá nhân</option>
+              <option value="Học tập" className="bg-zinc-900 text-zinc-300">Học tập</option>
             </select>
           </div>
         </div>
@@ -134,7 +151,7 @@ export const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAdd }) => {
             disabled={isSubmitting || !title.trim()}
             className="px-3 py-1.5 text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-950/40 disabled:text-emerald-800 text-zinc-950 rounded-lg transition-all"
           >
-            {isSubmitting ? 'Đang tạo...' : 'Thêm việc'}
+            {isSubmitting ? 'Đang tạo...' : 'Thêm'}
           </button>
         </div>
       </div>

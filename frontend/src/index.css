@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+@theme {
+  --spacing-safe-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pb-safe {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
 body {
   margin: 0;
   background-color: #09090b; /* Zinc 950 for premium dark aesthetic */
   color: #fafafa; /* Zinc 50 */
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent; /* better mobile tapping */
 }

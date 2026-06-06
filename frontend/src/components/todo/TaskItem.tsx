@@ -4,8 +4,8 @@ import { Trash2, Edit2, Check, X, Calendar } from 'lucide-react';
 
 interface TaskItemProps {
   todo: Todo;
-  onUpdate: (id: number, data: Partial<Todo>) => Promise<void>;
-  onDelete: (id: number) => Promise<void>;
+  onUpdate: (id: string, data: Partial<Todo>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) => {
@@ -14,6 +14,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
   const [editDescription, setEditDescription] = useState(todo.description);
   const [editDueDate, setEditDueDate] = useState(todo.due_date || '');
   const [editPriority, setEditPriority] = useState(todo.priority);
+  const [editCategory, setEditCategory] = useState(todo.category || 'Chung');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -41,6 +42,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
         description: editDescription.trim(),
         due_date: editDueDate || null,
         priority: editPriority,
+        category: editCategory,
       });
       setIsEditing(false);
     } catch (e) {
@@ -95,7 +97,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
           className="w-full bg-transparent border-none text-xs text-zinc-300 placeholder-zinc-500 p-0 focus:ring-0 focus:outline-none resize-none"
         />
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 text-zinc-400">
               <Calendar size={14} />
               <input
@@ -103,21 +105,32 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
                 value={editDueDate}
                 onChange={(e) => setEditDueDate(e.target.value)}
                 disabled={isSaving}
-                className="bg-zinc-800/40 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                className="bg-zinc-800/40 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-1.5 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
             <select
               value={editPriority}
               onChange={(e) => setEditPriority(e.target.value as any)}
               disabled={isSaving}
-              className="bg-zinc-800/40 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+              className="bg-zinc-800/40 text-zinc-200 border border-zinc-700/30 rounded-lg text-xs py-1 px-1.5 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
             >
               <option value="low">Thấp</option>
               <option value="medium">Trung bình</option>
               <option value="high">Cao</option>
             </select>
+            <select
+              value={editCategory}
+              onChange={(e) => setEditCategory(e.target.value)}
+              disabled={isSaving}
+              className="bg-zinc-800/40 text-cyan-400 border border-zinc-700/30 rounded-lg text-xs py-1 px-1.5 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+            >
+              <option value="Chung">Chung</option>
+              <option value="Công việc">Công việc</option>
+              <option value="Cá nhân">Cá nhân</option>
+              <option value="Học tập">Học tập</option>
+            </select>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-2 sm:mt-0">
             <button
               onClick={() => setIsEditing(false)}
               disabled={isSaving}
@@ -143,7 +156,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
       {/* Complete Checkbox */}
       <button
         onClick={handleToggleComplete}
-        className={`w-5 h-5 rounded-full flex items-center justify-center border-2 mt-0.5 transition-all duration-200 ${
+        className={`w-5 h-5 rounded-full flex items-center justify-center border-2 mt-0.5 transition-all duration-300 hover:scale-110 active:scale-95 flex-shrink-0 ${
           todo.completed === 1
             ? 'bg-emerald-500 border-emerald-500 text-zinc-950'
             : 'border-zinc-600 hover:border-emerald-500 text-transparent hover:text-emerald-500/30'
@@ -160,10 +173,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
           </h3>
           
           {/* Action buttons (Visible on hover) */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             <button
               onClick={() => setIsEditing(true)}
-              className="p-1 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-1 text-zinc-400 hover:text-zinc-200 transition-all hover:scale-110 active:scale-95"
               title="Sửa công việc"
             >
               <Edit2 size={14} />
@@ -171,7 +184,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="p-1 text-zinc-400 hover:text-red-400 transition-colors"
+              className="p-1 text-zinc-400 hover:text-red-400 transition-all hover:scale-110 active:scale-95"
               title="Xóa công việc"
             >
               <Trash2 size={14} />
@@ -186,10 +199,15 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
         )}
 
         {/* Badges bar */}
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center flex-wrap gap-2 mt-2">
           {/* Priority badge */}
           <span className={`text-[10px] px-2 py-0.5 rounded-full border ${priorityStyle.bg} ${priorityStyle.border} ${priorityStyle.text}`}>
             {todo.priority === 'high' ? 'Khẩn cấp' : todo.priority === 'medium' ? 'Trung bình' : 'Thấp'}
+          </span>
+
+          {/* Category badge */}
+          <span className="text-[10px] px-2 py-0.5 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-950/20 font-semibold">
+            {todo.category || 'Chung'}
           </span>
 
           {/* Due date badge */}
@@ -202,8 +220,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({ todo, onUpdate, onDelete }) 
 
           {/* Completed date badge */}
           {todo.completed === 1 && todo.completed_at && (
-            <span className="text-[10px] text-emerald-400 font-medium">
-              Xong ngày {formatDueDate(todo.completed_at)}
+            <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+              <Check size={10} /> Xong ngày {formatDueDate(todo.completed_at)}
             </span>
           )}
         </div>

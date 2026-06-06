@@ -1,14 +1,18 @@
 const express = require('express');
 const cors = require('cors');
 const { initDb } = require('./db');
+const authMiddleware = require('./middleware/auth');
+const User = require('./models/User');
+const Todo = require('./models/Todo');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const port = process.env.PORT || 5001;
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_mytodo_jwt_key_2026';
 
 app.use(cors());
 app.use(express.json());
-
-let db;
 
 // Helper to get today's date in YYYY-MM-DD
 function getTodayString() {
@@ -34,19 +38,81 @@ function isValidPriority(priority) {
   return ['low', 'medium', 'high'].includes(priority);
 }
 
-// 1. Get all todos
-app.get('/api/todos', async (req, res) => {
+// --- AUTH ROUTES ---
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+
   try {
-    const list = await db.all('SELECT * FROM todos ORDER BY due_date ASC, id DESC');
-    res.json(list);
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email is already registered' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = new User({ name, email, password: hashedPassword });
+    await newUser.save();
+
+    const token = jwt.sign({ id: newUser._id, name: newUser.name }, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ token, user: { id: newUser._id, name: newUser.name, email: newUser.email } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user._id, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- TODO ROUTES (Protected) ---
+
+// 1. Get all todos
+app.get('/api/todos', authMiddleware, async (req, res) => {
+  try {
+    const list = await Todo.find({ userId: req.user.id }).sort({ due_date: 1, _id: -1 });
+    // Transform _id to id for frontend compatibility
+    const formattedList = list.map(t => {
+      const obj = t.toObject();
+      obj.id = obj._id;
+      delete obj._id;
+      return obj;
+    });
+    res.json(formattedList);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // 2. Create a todo
-app.post('/api/todos', async (req, res) => {
-  const { title, description, due_date, priority } = req.body;
+app.post('/api/todos', authMiddleware, async (req, res) => {
+  const { title, description, due_date, priority, category } = req.body;
   if (!title || !title.trim()) {
     return res.status(400).json({ error: 'Title is required and cannot be empty' });
   }
@@ -57,21 +123,28 @@ app.post('/api/todos', async (req, res) => {
     return res.status(400).json({ error: 'Invalid priority value. Expected low, medium, or high.' });
   }
   try {
-    const result = await db.run(
-      'INSERT INTO todos (title, description, due_date, priority) VALUES (?, ?, ?, ?)',
-      [title.trim(), description || '', due_date || null, priority || 'medium']
-    );
-    const newTodo = await db.get('SELECT * FROM todos WHERE id = ?', [result.lastID]);
-    res.status(201).json(newTodo);
+    const newTodo = new Todo({
+      userId: req.user.id,
+      title: title.trim(),
+      description: description || '',
+      due_date: due_date || null,
+      priority: priority || 'medium',
+      category: category || 'Chung'
+    });
+    await newTodo.save();
+    const obj = newTodo.toObject();
+    obj.id = obj._id;
+    delete obj._id;
+    res.status(201).json(obj);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 3. Update a todo (including marking complete)
-app.put('/api/todos/:id', async (req, res) => {
+// 3. Update a todo
+app.put('/api/todos/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { title, description, due_date, priority, completed } = req.body;
+  const { title, description, due_date, priority, category, completed } = req.body;
   
   if (title !== undefined && (!title || !title.trim())) {
     return res.status(400).json({ error: 'Title cannot be empty' });
@@ -84,7 +157,7 @@ app.put('/api/todos/:id', async (req, res) => {
   }
 
   try {
-    const existing = await db.get('SELECT * FROM todos WHERE id = ?', [id]);
+    const existing = await Todo.findOne({ _id: id, userId: req.user.id });
     if (!existing) {
       return res.status(404).json({ error: 'Todo not found' });
     }
@@ -99,58 +172,55 @@ app.put('/api/todos/:id', async (req, res) => {
       }
     }
 
-    await db.run(
-      `UPDATE todos SET 
-        title = ?, 
-        description = ?, 
-        due_date = ?, 
-        priority = ?, 
-        completed = ?, 
-        completed_at = ?
-       WHERE id = ?`,
-      [
-        title !== undefined ? title.trim() : existing.title,
-        description !== undefined ? description : existing.description,
-        due_date !== undefined ? (due_date || null) : existing.due_date,
-        priority !== undefined ? priority : existing.priority,
-        completedVal,
-        completedAtVal,
-        id
-      ]
-    );
+    existing.title = title !== undefined ? title.trim() : existing.title;
+    existing.description = description !== undefined ? description : existing.description;
+    existing.due_date = due_date !== undefined ? (due_date || null) : existing.due_date;
+    existing.priority = priority !== undefined ? priority : existing.priority;
+    existing.category = category !== undefined ? category : existing.category;
+    existing.completed = completedVal;
+    existing.completed_at = completedAtVal;
 
-    const updated = await db.get('SELECT * FROM todos WHERE id = ?', [id]);
-    res.json(updated);
+    await existing.save();
+    
+    const obj = existing.toObject();
+    obj.id = obj._id;
+    delete obj._id;
+    res.json(obj);
   } catch (err) {
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
 
 // 4. Delete a todo
-app.delete('/api/todos/:id', async (req, res) => {
+app.delete('/api/todos/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
   try {
-    const existing = await db.get('SELECT * FROM todos WHERE id = ?', [id]);
+    const existing = await Todo.findOne({ _id: id, userId: req.user.id });
     if (!existing) {
       return res.status(404).json({ error: 'Todo not found' });
     }
-    await db.run('DELETE FROM todos WHERE id = ?', [id]);
+    await existing.deleteOne();
     res.json({ message: 'Todo deleted successfully' });
   } catch (err) {
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
 
 // 5. Get heatmap completed tasks aggregation
-app.get('/api/todos/heatmap', async (req, res) => {
+app.get('/api/todos/heatmap', authMiddleware, async (req, res) => {
   try {
-    const stats = await db.all(`
-      SELECT completed_at as date, COUNT(*) as count 
-      FROM todos 
-      WHERE completed = 1 AND completed_at IS NOT NULL
-      GROUP BY completed_at
-      ORDER BY completed_at ASC
-    `);
+    const stats = await Todo.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(req.user.id), completed: 1, completed_at: { $ne: null } } },
+      { $group: { _id: "$completed_at", count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+      { $project: { date: "$_id", count: 1, _id: 0 } }
+    ]);
     res.json(stats);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -158,8 +228,7 @@ app.get('/api/todos/heatmap', async (req, res) => {
 });
 
 // Start server after DB init
-initDb().then((database) => {
-  db = database;
+initDb().then(() => {
   app.listen(port, () => {
     console.log(`Backend listening on port ${port}`);
   });
