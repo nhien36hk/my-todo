@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  background-color: #09090b; /* Zinc 950 for premium dark aesthetic */
+  color: #fafafa; /* Zinc 50 */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}

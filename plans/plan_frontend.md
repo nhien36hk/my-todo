@@ -42,21 +42,26 @@ frontend/
 
 ---
 
-## 3. Quy trình phát triển & Kiểm thử (Verification Steps)
+## 3. Quy trình phát triển & Kiểm thử Biên (Verification Steps)
 
-1. **Khởi tạo và cài đặt TailwindCSS:**
-   - Chạy lệnh khởi tạo: `npm create vite@latest frontend -- --template react-ts` hoặc `react`.
-   - Cài đặt TailwindCSS theo tài liệu hướng dẫn và cấu hình `tailwind.config.js`.
-   - Cài đặt `axios` và `lucide-react` để lấy icon đẹp mắt.
-2. **Thiết lập kết nối API (Axios):**
-   - Viết client kết nối đến địa chỉ backend `http://localhost:5001/api`.
-3. **Xây dựng giao diện CRUD cơ bản:**
-   - Hoàn thành giao diện danh sách công việc và form thêm việc trước.
-4. **Kiểm thử thủ công (Verification):**
-   - Chạy dev server bằng `npm run dev -- --host` (cổng 5173).
-   - Truy cập vào cổng 8080 (khi đã cấu hình Docker) để kiểm tra toàn bộ hoạt động thêm/sửa/xóa và đánh dấu hoàn thành xem giao diện có cập nhật tức thì hay không.
-5. **Git Commit:** Khi frontend đã có giao diện CRUD chạy mượt mà kết nối thành công với backend: `git add frontend/ && git commit -m "feat(frontend): create React UI and CRUD integrations"`.
+Theo triết lý 80-5-15, chúng ta dành phần lớn nỗ lực để thiết kế các kịch bản kiểm thử biên và phòng ngừa lỗi trên giao diện (UI robustness):
+
+### Các Kịch Bản Kiểm Thử Biên & Phá Hoại (Edge-Cases):
+1. **Network Failures & Lỗi API:** Khi Backend bị sập hoặc API trả về mã lỗi 500, Frontend không được crash màn hình trắng mà phải hiển thị thông báo Toast cảnh báo lỗi thân thiện.
+2. **Double Submission (Nhấn đúp nút gửi):** Khi người dùng nhấp liên tiếp vào nút thêm công việc (hoặc bấm enter liên tục), Frontend cần vô hiệu hóa (disable) nút gửi để tránh chèn đúp dữ liệu lên Backend.
+3. **Hiển thị văn bản quá dài (Layout Break):** Nhập công việc với tên siêu dài (ví dụ: 1000 ký tự không có dấu cách) để kiểm tra xem giao diện có tự động ngắt dòng (`break-all` / `truncate`) hay làm vỡ bố cục Sidebar/Main layout.
+4. **Đồng bộ State khi hoàn thành:** Đảm bảo khi bấm nút checkbox hoàn thành, state của danh sách và Heatmap trên màn hình được cập nhật đồng bộ ngay lập tức mà không cần F5 (tải lại trang).
+5. **Trạng thái rỗng (Empty States):** Kiểm tra hiển thị khi danh sách công việc hoàn toàn rỗng để hiển thị các minh họa và gợi ý trực quan thay vì màn hình trống trơn nhàm chán.
+
+### Các bước thực hiện:
+1. **Khởi tạo dự án và cấu hình Tailwind:**
+   - Chạy lệnh khởi tạo: `npm create vite@latest frontend -- --template react-ts`
+   - Cài đặt TailwindCSS và icon pack (`lucide-react`).
+2. **Cấu hình xử lý lỗi tập trung:** Viết Client Axios xử lý lỗi chung (interceptor) để hiển thị thông báo lỗi khi API thất bại.
+3. **Mô phỏng & Stress-Test:** Nhập thử các chuỗi ký tự độc hại, ngắt kết nối mạng tạm thời trong tab Network của DevTools để xem Frontend xử lý thế nào.
+4. **Git Commit:** Chỉ commit sau khi đã kiểm tra kỹ các kịch bản phá hoại UI ở trên và đảm bảo giao diện chống chịu tốt trước dữ liệu lỗi.
 
 ---
 *Tài liệu này được lưu trữ trực tuyến tại:*
 * 📄 **Kế hoạch Frontend:** [http://mymony.me/viewer?file=todo/plans/plan_frontend.md](http://mymony.me/viewer?file=todo/plans/plan_frontend.md)
+
