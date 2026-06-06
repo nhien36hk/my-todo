@@ -37,22 +37,39 @@ Tất cả các endpoint bắt đầu bằng `/api`:
 
 ---
 
-## 3. Kế hoạch Phát triển & Kiểm thử (Verification Steps)
+## 3. Kế hoạch Phát triển & Kiểm thử Phá Hoại (Destructive Testing)
 
-1. **Khởi tạo project Node.js:**
-   - Tạo thư mục `/root/my-todo/backend`.
-   - Chạy `npm init -y` và cài đặt dependencies (`express`, `cors`, `sqlite3` hoặc `sqlite`).
-2. **Viết mã nguồn:**
-   - Tạo tệp `db.js` khởi tạo kết nối SQLite và tạo bảng.
-   - Tạo tệp `server.js` khởi chạy server Express trên cổng **5001** và định nghĩa các route API.
-3. **Kiểm thử thủ công (Verification):**
-   - Dùng lệnh `curl` gọi các API kiểm thử:
-     - Tạo công việc: `curl -X POST -H "Content-Type: application/json" -d '{"title":"Test task"}' http://localhost:5001/api/todos`
-     - Lấy danh sách: `curl http://localhost:5001/api/todos`
-     - Hoàn thành công việc: `curl -X PUT -H "Content-Type: application/json" -d '{"completed":1}' http://localhost:5001/api/todos/1`
-     - Kiểm tra heatmap API: `curl http://localhost:5001/api/todos/heatmap`
-4. **Git Commit:** Khi toàn bộ API đã chạy đúng và dữ liệu SQLite lưu chính xác, tiến hành commit đầu tiên: `git add backend/ && git commit -m "feat(backend): implement CRUD APIs and SQLite database"`.
+Theo triết lý 80-5-15, chúng ta dành 80% nỗ lực phân tích các kịch bản biên của Backend và xây dựng kịch bản kiểm thử tự động tại `backend/test.js` để phát hiện lỗi trước khi code hoặc commit.
+
+### Các Kịch Bản Kiểm Thử Biên & Phá Hoại (Edge-Cases):
+1. **Thiếu tiêu đề (Title Validation):** `POST /api/todos` với `{ title: "" }` hoặc không có trường `title`. Phản hồi phải trả về `400 Bad Request` thay vì crash server hoặc chèn rỗng vào DB.
+2. **Sai định dạng ngày (Due Date Validation):** `POST /api/todos` hoặc `PUT /api/todos/:id` với `due_date` có giá trị bất hợp lý:
+   - Sai định dạng: `"due_date": "06-06-2026"` (phải là `YYYY-MM-DD`).
+   - Ngày không tồn tại: `"due_date": "2026-02-30"`.
+   - Chuỗi độc hại hoặc rỗng: `"due_date": "NOT_A_DATE"`.
+   Server cần từ chối và trả về `400 Bad Request`.
+3. **Giá trị priority không hợp lệ (Priority Validation):** Gửi priority là `"critical"` hoặc `""`. DB chỉ chấp nhận các giá trị: `low`, `medium`, `high`. Hệ thống phải tự động gán về mặc định `medium` hoặc trả về `400 Bad Request`.
+4. **Trạng thái Completed & completed_at logic:**
+   - Khi `PUT /api/todos/:id` cập nhật `completed = 1`, hệ thống tự ghi nhận `completed_at` là ngày hiện tại (`YYYY-MM-DD`).
+   - Khi `PUT /api/todos/:id` cập nhật `completed = 0`, hệ thống phải xóa `completed_at` thành `null`.
+   - Chạy test cập nhật liên tiếp `completed = 1` -> `completed = 0` -> `completed = 1` để kiểm tra tính đồng bộ của DB.
+5. **ID không tồn tại:** `PUT /api/todos/9999` hoặc `DELETE /api/todos/9999`. Trả về `404 Not Found`.
+6. **API Heatmap rỗng & biên:**
+   - Lấy dữ liệu heatmap khi DB hoàn toàn rỗng.
+   - Thêm nhiều task đã hoàn thành trong cùng một ngày (ví dụ: 5 task) và kiểm tra xem API Heatmap có trả về count chính xác bằng 5 hay không.
+
+### Các bước thực hiện:
+1. **Viết script kiểm thử tự động (`backend/test.js`):**
+   - Viết các test case sử dụng thư viện `fetch` hoặc `axios` để gọi API Backend và khẳng định (assert) các mã trạng thái HTTP cũng như dữ liệu trả về.
+   - Script phải chạy độc lập và trả về mã lỗi (exit code 1) nếu có bất kỳ test case nào thất bại.
+2. **Khởi chạy Backend và chạy Test:**
+   - Chạy backend: `node server.js`
+   - Chạy test: `node test.js`
+3. **Lặp lại Feedback Loop (Sửa Bug):**
+   - Nếu script test tìm ra bug (ví dụ: server crash khi nhận ngày sai), ta dừng lại, sửa code trong `server.js` hoặc `db.js`, cập nhật lại kế hoạch nếu cần, rồi chạy lại test.
+4. **Git Commit:** Chỉ commit sau khi file `node test.js` kết thúc thành công 100% các kịch bản biên trên.
 
 ---
 *Tài liệu này được lưu trữ trực tuyến tại:*
 * 📄 **Kế hoạch Backend:** [http://mymony.me/viewer?file=todo/plans/plan_backend.md](http://mymony.me/viewer?file=todo/plans/plan_backend.md)
+

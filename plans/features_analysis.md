@@ -40,23 +40,35 @@ Hiển thị một lưới 53 tuần tương tự như biểu đồ đóng góp 
 
 ---
 
-## 3. Kế hoạch Triển khai Từng bước & Kiểm thử (Verification Steps)
+## 3. Kế hoạch Triển khai & Triết lý Phát triển (80-5-15 Rule)
 
-Quy trình triển khai tuân thủ quy tắc **Karpathy Clean Code**: Chỉ làm từng tính năng một, kiểm thử hoàn tất mới commit Git.
+Quy trình triển khai tuân thủ các nguyên tắc nghiêm ngặt:
+* **Phân bổ nỗ lực (80-5-15):** 80% thời gian nghiên cứu context và phân tích các trường hợp biên/edge cases dễ gây lỗi; 5% viết code giải pháp; 15% thiết kế và chạy các bài kiểm thử phá hoại (destructive tests).
+* **Triết lý Kiểm thử:** Mục tiêu của bộ test không phải là hiển thị màu xanh lá cây "Pass" một cách dễ dàng, mà là bao phủ nhiều kịch bản phức tạp nhất để phát hiện lỗi thực tế. Một bộ test được coi là thành công khi nó stress-test được toàn bộ các edge case.
+* **Quy trình Lặp (Feedback Loop):** Nếu test phát hiện ra lỗi, lỗi đó được định nghĩa thành một "sub-feature" cần sửa. Kế hoạch (plan) và code sẽ được cập nhật, sau đó chạy lại test cho đến khi toàn bộ các trường hợp biên được xử lý triệt để rồi mới thực hiện Git Commit.
 
-### Bước 1: Thiết kế Cơ sở Dữ liệu & API Backend (Express + SQLite)
-* **Mô tả:** Thiết lập backend Node.js, cài đặt thư viện SQLite, định nghĩa schema bảng `todos` và viết các API:
-  * `GET /api/todos` (Lấy danh sách việc).
-  * `POST /api/todos` (Tạo việc).
-  * `PUT /api/todos/:id` (Cập nhật việc/Hoàn thành việc).
-  * `DELETE /api/todos/:id` (Xóa việc).
-  * `GET /api/todos/heatmap` (Lấy dữ liệu thống kê số công việc hoàn thành theo ngày để vẽ biểu đồ).
-* **Kiểm thử (Verification):** Sử dụng các lệnh `curl` để gọi trực tiếp các API, xác nhận dữ liệu trả về đúng định dạng JSON và SQLite lưu trữ thành công.
+### Bước 1: API Backend (Express + SQLite) & Kiểm thử Biên
+* **Mô tả:** Thiết lập backend Node.js, SQLite schema và các API CRUD + Heatmap.
+* **Edge cases cần lên kế hoạch & kiểm thử:**
+  * Thêm công việc không có tiêu đề, tiêu đề quá dài, hoặc chứa ký tự đặc biệt.
+  * Định dạng ngày tháng do người dùng truyền lên không hợp lệ (ví dụ: `2026-02-30`, sai định dạng `YYYY-MM-DD`).
+  * Mức độ ưu tiên truyền lên giá trị lạ (ví dụ: `ultra-high` thay vì `low/medium/high`).
+  * Đánh dấu hoàn thành một công việc đã hoàn thành hoặc ngược lại (kiểm tra trường `completed_at` có được gán/xóa đúng và đồng nhất không).
+  * API Heatmap hoạt động thế nào khi không có task nào hoàn thành, hoặc khi có hàng chục task hoàn thành trong cùng một ngày (xử lý chia cho 0 hoặc giá trị biên).
+* **Kiểm thử (Verification):** Sử dụng script kiểm thử tự động (ví dụ: dùng shell script hoặc JS test script) gửi các payload độc hại và biên để kiểm tra khả năng phục hồi lỗi của Backend.
 
-### Bước 2: Xây dựng Giao diện Frontend (React + TailwindCSS)
-* **Mô tả:** Khởi tạo project React bằng Vite, cài đặt TailwindCSS, xây dựng giao diện Todoist gồm thanh bên điều hướng, bảng quản lý công việc và Component vẽ lưới ô vuông đóng góp (Heatmap Grid).
-* **Kiểm thử (Verification):** Chạy và kiểm tra giao diện hiển thị trên trình duyệt, kiểm tra hoạt động tương tác thêm/sửa/xóa/hoàn thành và xem màu sắc các ô xanh của biểu đồ thay đổi đúng tỷ lệ.
+### Bước 2: Frontend (React + Tailwind) & Lưới Nhiệt Heatmap
+* **Mô tả:** Tạo dự án React/Vite, Tailwind, và dựng lưới nhiệt 53 tuần.
+* **Edge cases cần lên kế hoạch & kiểm thử:**
+  * Lưới nhiệt hiển thị thế nào trong năm nhuận hoặc khi chuyển giao giữa các năm.
+  * Màu sắc hiển thị thế nào khi số lượng công việc hoàn thành trong một ngày vượt quá kỳ vọng hoặc cực kỳ phân tán.
+  * Hành vi giao diện khi gọi API thất bại (hiển thị trạng thái lỗi thay vì crash trang).
+* **Kiểm thử (Verification):** Mô phỏng các tập dữ liệu heatmap biên (rỗng, cực lớn, lệch) để kiểm tra giao diện render chuẩn xác.
 
-### Bước 3: Cấu hình Docker & Docker Compose
-* **Mô tả:** Viết các tệp tin Dockerfile cho frontend/backend và `docker-compose.yml`.
-* **Kiểm thử (Verification):** Khởi chạy `docker compose up -d`, kiểm tra log container và xác nhận truy cập được qua các cổng 8080 (frontend) và 5001 (backend) trên VPS.
+### Bước 3: Docker Compose Integration
+* **Mô tả:** Đóng gói Docker và liên kết volume SQLite.
+* **Kiểm thử (Verification):** Restart container đột ngột để kiểm tra tính toàn vẹn của dữ liệu trong cơ sở dữ liệu SQLite.
+
+---
+*Tài liệu này được lưu trữ trực tuyến tại:*
+* 📄 **Phân tích Tính năng:** [http://mymony.me/viewer?file=todo/plans/features_analysis.md](http://mymony.me/viewer?file=todo/plans/features_analysis.md)
