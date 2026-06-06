@@ -9,7 +9,7 @@ import { useTodos } from './hooks/useTodos';
 import { AlertCircle, RefreshCw, CalendarDays } from 'lucide-react';
 
 function App() {
-  const { isAuthenticated, user, isLoadingAuth, login, logout } = useAuth();
+  const { isAuthenticated, isLoadingAuth, login } = useAuth();
   
   const {
     todos,
@@ -20,23 +20,22 @@ function App() {
     handleAddTodo,
     handleUpdateTodo,
     handleDeleteTodo,
+    // clearTodos will be handled elsewhere or we don't need it on logout since the component remounts or user is null.
+    // wait, we need clearTodos? If App rerenders on logout, useTodos effect won't fetch data, but old data remains if we don't clear it.
+    // Let's keep clearTodos and we can add a useEffect to listen to isAuthenticated. 
     clearTodos
   } = useTodos(isAuthenticated);
 
   const [activeFilter, setActiveFilter] = useState<'inbox' | 'today' | 'upcoming' | 'completed'>('inbox');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleLogout = () => {
-    logout();
-    clearTodos();
-    setSearchQuery('');
-  };
-
   if (isLoadingAuth) {
     return null; // Or a loading spinner
   }
 
   if (!isAuthenticated) {
+    // When logging out, clear todos so next login doesn't briefly show old ones
+    if (todos.length > 0) clearTodos();
     return <Auth onLoginSuccess={login} />;
   }
 
@@ -60,8 +59,6 @@ function App() {
         activeFilter={activeFilter} 
         setActiveFilter={setActiveFilter} 
         todos={filteredTodos}
-        user={user}
-        onLogout={handleLogout}
       />
 
       {/* Main Content */}

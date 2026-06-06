@@ -1,16 +1,16 @@
 import React from 'react';
 import { Inbox, Calendar, CalendarDays, CheckSquare, ListTodo, LogOut } from 'lucide-react';
 import type { Todo } from '../../api/client';
+import { useAuth } from '../../hooks/useAuth';
 
 interface SidebarProps {
   activeFilter: 'inbox' | 'today' | 'upcoming' | 'completed';
   setActiveFilter: (filter: 'inbox' | 'today' | 'upcoming' | 'completed') => void;
   todos: Todo[];
-  user: any;
-  onLogout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeFilter, setActiveFilter, todos, user, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeFilter, setActiveFilter, todos }) => {
+  const { user, logout } = useAuth();
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Count active todos for badges
@@ -66,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeFilter, setActiveFilter,
               </span>
             </div>
           </div>
-          <button onClick={onLogout} title="Đăng xuất" className="p-2 text-zinc-500 hover:text-red-400 transition-colors bg-zinc-900/50 hover:bg-red-950/30 rounded-lg">
+          <button onClick={logout} title="Đăng xuất" className="p-2 text-zinc-500 hover:text-red-400 transition-colors bg-zinc-900/50 hover:bg-red-950/30 rounded-lg">
             <LogOut size={16} />
           </button>
         </div>
@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeFilter, setActiveFilter,
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-zinc-400 font-medium truncate max-w-[100px]">{user?.name}</span>
-          <button onClick={onLogout} className="text-zinc-400 hover:text-red-400 p-1">
+          <button onClick={logout} className="text-zinc-400 hover:text-red-400 p-1">
             <LogOut size={18} />
           </button>
         </div>
