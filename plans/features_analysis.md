@@ -1,52 +1,62 @@
-# Phân tích tính năng: Todoist Clone với Bảng thống kê kiểu GitHub
+# Kế hoạch Phân tích Tính năng: My Todoist Clone
 
-Bản phân tích này hoạch định các tính năng cốt lõi, kiến trúc hệ thống và giao diện hiển thị cho ứng dụng Todoist Clone tự vận hành.
-
----
-
-## 1. Danh sách tính năng cốt lõi (Core Features)
-
-### Feature 1: Quản lý tác vụ (Task CRUD)
-- **Thêm tác vụ:** Tiêu đề (bắt buộc), Mô tả chi tiết, Ngày hạn chót (Due Date), Độ ưu tiên (Thấp, Trung bình, Cao), Nhãn/Dự án.
-- **Hoàn thành tác vụ:** Đánh dấu hoàn thành (Trigger để ghi nhận vào lịch sử biểu đồ đóng góp).
-- **Chỉnh sửa & Xóa tác vụ:** Cho phép thay đổi thông tin hoặc xóa bỏ.
-
-### Feature 2: Bộ lọc & Lịch trình (Filters & Views)
-- **Hộp thư đến (Inbox):** Danh sách toàn bộ việc chưa làm.
-- **Hôm nay (Today):** Các việc có hạn chót là ngày hôm nay.
-- **Sắp tới (Upcoming):** Lịch trình các ngày tiếp theo dạng danh sách xếp theo thời gian.
-
-### Feature 3: Biểu đồ đóng góp kiểu GitHub (GitHub-style Heatmap) - TÍNH NĂNG ĐẶC BIỆT
-Hiển thị một lưới (grid) gồm 365 ô tương ứng với các ngày trong năm (52 tuần).
-- **Logic màu sắc:**
-  - Ngày không hoàn thành việc nào: Màu nền xám/trắng nhạt (`bg-slate-900/10` hoặc tương đương).
-  - Ngày có hoàn thành công việc: Hiển thị màu xanh (hoặc màu chủ đạo của hệ thống).
-  - **Độ đậm nhạt thích ứng (Dynamic Intensity):**
-    - Hệ thống tự động quét lịch sử hoàn thành để tìm ra **số lượng công việc hoàn thành nhiều nhất trong một ngày** của năm đó (`MAX_COMPLETED`).
-    - Các ngày còn lại sẽ được tính tỷ lệ màu sắc dựa trên công thức: `Intensity = (Số việc hoàn thành ngày đó) / MAX_COMPLETED`.
-    - Phân chia màu thành 4 cấp độ đậm dần tương ứng với tỷ lệ phần trăm (25%, 50%, 75%, 100%).
+Dự án này hướng tới phát triển một ứng dụng quản lý công việc (Todoist Clone) với giao diện trực quan và một tính năng đặc biệt: **Biểu đồ đóng góp (Contribution Heatmap) kiểu GitHub** ghi nhận mức độ hoàn thành công việc theo ngày trong năm.
 
 ---
 
-## 2. Kiến trúc hệ thống & Thiết lập Docker
-
-Hệ thống được chạy hoàn toàn dưới dạng container thông qua Docker Compose độc lập, tránh xung đột cổng với dự án MyMoni:
-
-| Thành phần | Công nghệ | Cổng ngoài (Host) | Cổng trong (Container) | Mô tả |
-| :--- | :--- | :--- | :--- | :--- |
-| **Frontend** | React + Vite + TailwindCSS | **8080** | 5173 | Giao diện người dùng tối giản, mượt mà |
-| **Backend** | Node.js + Express | **5001** | 5000 | Cung cấp RESTful API xử lý dữ liệu |
-| **Database** | SQLite | *Nội bộ* | *Nội bộ* | Cơ sở dữ liệu tự chứa dạng file gọn nhẹ, lưu trữ an toàn |
+## 1. Phân bổ Cổng (Ports) & Tránh xung đột với MyMoni
+Để không xung đột với ứng dụng MyMoni (đang chạy trên cổng 80 và 5000), ứng dụng Todo mới sẽ dùng các cổng sau:
+* **React Frontend:** Cổng **8080** (ánh xạ từ cổng 5173 của Vite trong container).
+* **Node.js Backend:** Cổng **5001** (ánh xạ từ cổng 5001 trong container).
+* **Database:** SQLite (lưu trữ dưới dạng file đơn lẻ `todo.db` trong volume Docker để tối giản hóa tài nguyên và đảm bảo tính di động).
 
 ---
 
-## 3. Kế hoạch triển khai từng bước (Plans Folder Structure)
-Chúng ta sẽ tạo các file kế hoạch chi tiết trong thư mục `plans/` tương ứng cho từng tính năng:
-1. `plan_backend.md`: Thiết lập Node.js + SQLite API và viết các test case.
-2. `plan_frontend.md`: Thiết lập React + Tailwind và giao diện CRUD cơ bản.
-3. `plan_heatmap.md`: Xây dựng component vẽ lưới thống kê đóng góp kiểu GitHub.
-4. `plan_docker.md`: Cấu hình Dockerfile, docker-compose và chạy thử nghiệm tích hợp.
+## 2. Các Tính năng Cốt lõi (Core Features)
+
+### Tính năng 1: Quản lý Công việc (Todo CRUD)
+* **Thêm việc mới:** Nhập tiêu đề, mô tả (tùy chọn), ngày hết hạn (due date), mức độ ưu tiên (Thấp, Trung bình, Cao).
+* **Hiển thị danh sách:** Xem công việc hôm nay, việc sắp tới (Upcoming), việc đã hoàn thành.
+* **Hoàn thành việc:** Đánh dấu hoàn thành. Lưu lại thời điểm hoàn thành (`completed_at`) để vẽ biểu đồ.
+* **Chỉnh sửa / Xóa việc:** Thay đổi thông tin hoặc xóa hẳn công việc.
+
+### Tính năng 2: Biểu đồ Nhiệt Đóng góp (GitHub-style Completed Tasks Heatmap)
+Hiển thị một lưới 53 tuần tương tự như biểu đồ đóng góp commit của GitHub để theo dõi năng suất.
+* **Cơ chế tính toán màu sắc:**
+  1. Tìm ngày có số lượng công việc hoàn thành nhiều nhất trong năm qua (`max_completed`).
+  2. Nếu `max_completed == 0`, toàn bộ biểu đồ sẽ hiển thị màu xám nhạt (không có đóng góp).
+  3. Nếu `max_completed > 0`, tỷ lệ màu sắc của một ngày có số công việc hoàn thành `completed_count` sẽ là:
+     * `level = ceil((completed_count / max_completed) * 4)` (giá trị từ 1 đến 4).
+     * Mức 0: 0 việc completed -> Màu xám nhạt (`bg-zinc-800` hoặc tương tự).
+     * Mức 1: Màu xanh lá cây rất nhạt (nhạt nhất).
+     * Mức 2: Màu xanh lá cây nhạt.
+     * Mức 3: Màu xanh lá cây trung bình.
+     * Mức 4: Màu xanh lá cây đậm nhất (ngày làm nhiều việc nhất).
+
+### Tính năng 3: Môi trường Docker hóa (Docker Integration)
+* **Backend Dockerfile:** Sử dụng Node.js Alpine, cài đặt dependencies, chạy ứng dụng Express.
+* **Frontend Dockerfile:** Sử dụng Node.js để chạy Vite Dev Server trong chế độ phát triển (hoặc Nginx cho production).
+* **docker-compose.yml:** Khởi chạy đồng thời cả hai dịch vụ trên cổng 8080 và 5001, đồng bộ volume dữ liệu của SQLite.
 
 ---
-*Bản tài liệu này được lưu trữ trong mã nguồn dự án tại VPS của bạn:*
-* 📄 **Tài liệu Phân tích tính năng:** [http://mymony.me/viewer?file=todo/plans/features_analysis.md](http://mymony.me/viewer?file=todo/plans/features_analysis.md)
+
+## 3. Kế hoạch Triển khai Từng bước & Kiểm thử (Verification Steps)
+
+Quy trình triển khai tuân thủ quy tắc **Karpathy Clean Code**: Chỉ làm từng tính năng một, kiểm thử hoàn tất mới commit Git.
+
+### Bước 1: Thiết kế Cơ sở Dữ liệu & API Backend (Express + SQLite)
+* **Mô tả:** Thiết lập backend Node.js, cài đặt thư viện SQLite, định nghĩa schema bảng `todos` và viết các API:
+  * `GET /api/todos` (Lấy danh sách việc).
+  * `POST /api/todos` (Tạo việc).
+  * `PUT /api/todos/:id` (Cập nhật việc/Hoàn thành việc).
+  * `DELETE /api/todos/:id` (Xóa việc).
+  * `GET /api/todos/heatmap` (Lấy dữ liệu thống kê số công việc hoàn thành theo ngày để vẽ biểu đồ).
+* **Kiểm thử (Verification):** Sử dụng các lệnh `curl` để gọi trực tiếp các API, xác nhận dữ liệu trả về đúng định dạng JSON và SQLite lưu trữ thành công.
+
+### Bước 2: Xây dựng Giao diện Frontend (React + TailwindCSS)
+* **Mô tả:** Khởi tạo project React bằng Vite, cài đặt TailwindCSS, xây dựng giao diện Todoist gồm thanh bên điều hướng, bảng quản lý công việc và Component vẽ lưới ô vuông đóng góp (Heatmap Grid).
+* **Kiểm thử (Verification):** Chạy và kiểm tra giao diện hiển thị trên trình duyệt, kiểm tra hoạt động tương tác thêm/sửa/xóa/hoàn thành và xem màu sắc các ô xanh của biểu đồ thay đổi đúng tỷ lệ.
+
+### Bước 3: Cấu hình Docker & Docker Compose
+* **Mô tả:** Viết các tệp tin Dockerfile cho frontend/backend và `docker-compose.yml`.
+* **Kiểm thử (Verification):** Khởi chạy `docker compose up -d`, kiểm tra log container và xác nhận truy cập được qua các cổng 8080 (frontend) và 5001 (backend) trên VPS.
