@@ -1,143 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Heatmap } from './components/heatmap/Heatmap';
 import { AddTaskForm } from './components/todo/AddTaskForm';
 import { TaskList } from './components/todo/TaskList';
 import { Auth } from './components/auth/Auth';
-import { todoApi } from './api/client';
-import type { Todo, HeatmapData } from './api/client';
+import { useAuth } from './hooks/useAuth';
+import { useTodos } from './hooks/useTodos';
 import { AlertCircle, RefreshCw, CalendarDays } from 'lucide-react';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [user, setUser] = useState<any>(null);
+  const { isAuthenticated, user, isLoadingAuth, login, logout } = useAuth();
+  
+  const {
+    todos,
+    heatmapData,
+    isLoading: isLoadingTodos,
+    error,
+    fetchData,
+    handleAddTodo,
+    handleUpdateTodo,
+    handleDeleteTodo,
+    clearTodos
+  } = useTodos(isAuthenticated);
 
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
   const [activeFilter, setActiveFilter] = useState<'inbox' | 'today' | 'upcoming' | 'completed'>('inbox');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Check auth state on mount
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
-      setIsAuthenticated(true);
-    } else {
-      setIsLoading(false);
-    }
-
-    const handleAuthError = () => {
-      setIsAuthenticated(false);
-      setUser(null);
-    };
-    window.addEventListener('auth_error', handleAuthError);
-    return () => window.removeEventListener('auth_error', handleAuthError);
-  }, []);
-
-  const handleLoginSuccess = (userData: any, _token: string) => {
-    setUser(userData);
-    setIsAuthenticated(true);
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUser(null);
-    setTodos([]);
-    setHeatmapData([]);
+    logout();
+    clearTodos();
     setSearchQuery('');
   };
 
-  // Fetch all data from backend
-  const fetchData = async () => {
-    if (!isAuthenticated) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [todosList, heatmap] = await Promise.all([
-        todoApi.getAll(),
-        todoApi.getHeatmap()
-      ]);
-      setTodos(todosList);
-      setHeatmapData(heatmap);
-
-      // Reminder Logic
-      const todayStr = new Date().toISOString().split('T')[0];
-      const dueToday = todosList.filter((t: Todo) => t.completed === 0 && t.due_date === todayStr);
-      if (dueToday.length > 0 && 'Notification' in window) {
-        if (Notification.permission === 'granted') {
-          const alreadyNotified = sessionStorage.getItem('notified_today');
-          if (alreadyNotified !== todayStr) {
-            new Notification('MyTodo Nhắc Nhở 🔔', {
-              body: `Bạn có ${dueToday.length} công việc cần hoàn thành hôm nay!`,
-              icon: '/favicon.svg'
-            });
-            sessionStorage.setItem('notified_today', todayStr);
-          }
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission();
-        }
-      }
-    } catch (err: any) {
-      console.error(err);
-      setError('Không thể lấy dữ liệu. Vui lòng kiểm tra kết nối.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [isAuthenticated]);
-
-  // API Call wrappers
-  const handleAddTodo = async (todoData: { title: string; description?: string; due_date?: string | null; priority?: string; category?: string }) => {
-    try {
-      const newTodo = await todoApi.create(todoData);
-      setTodos((prev) => [newTodo, ...prev]);
-      
-      const heatmap = await todoApi.getHeatmap();
-      setHeatmapData(heatmap);
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Có lỗi xảy ra khi tạo công việc.');
-      throw err;
-    }
-  };
-
-  const handleUpdateTodo = async (id: string, updateData: Partial<Todo>) => {
-    try {
-      const updated = await todoApi.update(id, updateData);
-      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
-
-      const heatmap = await todoApi.getHeatmap();
-      setHeatmapData(heatmap);
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Có lỗi xảy ra khi cập nhật công việc.');
-      throw err;
-    }
-  };
-
-  const handleDeleteTodo = async (id: string) => {
-    try {
-      await todoApi.delete(id);
-      setTodos((prev) => prev.filter((t) => t.id !== id));
-
-      const heatmap = await todoApi.getHeatmap();
-      setHeatmapData(heatmap);
-    } catch (err: any) {
-      alert('Có lỗi xảy ra khi xóa công việc.');
-      throw err;
-    }
-  };
+  if (isLoadingAuth) {
+    return null; // Or a loading spinner
+  }
 
   if (!isAuthenticated) {
-    return <Auth onLoginSuccess={handleLoginSuccess} />;
+    return <Auth onLoginSuccess={login} />;
   }
 
   // Filter out todos by search query BEFORE passing to TaskList
@@ -159,7 +59,7 @@ function App() {
       <Sidebar 
         activeFilter={activeFilter} 
         setActiveFilter={setActiveFilter} 
-        todos={filteredTodos} // pass filtered so sidebar counts reflect search if wanted, or just pass 'todos' to keep counts absolute. Let's pass absolute.
+        todos={filteredTodos}
         user={user}
         onLogout={handleLogout}
       />
@@ -178,12 +78,12 @@ function App() {
               className="p-1.5 hover:bg-red-900/20 rounded-lg transition-colors text-red-400 hover:text-red-200"
               title="Thử lại"
             >
-              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={isLoadingTodos ? 'animate-spin' : ''} />
             </button>
           </div>
         )}
 
-        {/* Heatmap Area - Hide on very small mobile screens to save space, show on md and above or scrollable */}
+        {/* Heatmap Area */}
         <section id="heatmap-section" className="w-full overflow-x-auto pb-2">
           <Heatmap data={heatmapData} />
         </section>
@@ -209,7 +109,7 @@ function App() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm px-3 py-1.5 focus:outline-none focus:border-emerald-500 transition-colors w-full sm:w-64"
               />
-              {isLoading && (
+              {isLoadingTodos && (
                 <RefreshCw size={14} className="animate-spin text-zinc-500" />
               )}
             </div>
